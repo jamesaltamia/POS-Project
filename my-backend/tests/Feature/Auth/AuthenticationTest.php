@@ -3,8 +3,10 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Laravel\Sanctum\Sanctum;
 
 class AuthenticationTest extends TestCase
 {
@@ -12,36 +14,38 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
-        $user = User::factory()->create();
-
-        $response = $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password',
+        $response = $this->postJson('/api/login', [
+            'email' => $this->cashier->email,
+            'password' => 'password'
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertNoContent();
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'token',
+                'user' => [
+                    'id',
+                    'name',
+                    'email'
+                ]
+            ]);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
-        $user = User::factory()->create();
-
-        $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'wrong-password',
+        $response = $this->postJson('/api/login', [
+            'email' => $this->cashier->email,
+            'password' => 'wrong-password'
         ]);
 
-        $this->assertGuest();
+        $response->assertStatus(422);
     }
 
     public function test_users_can_logout(): void
     {
-        $user = User::factory()->create();
+        Sanctum::actingAs($this->cashier);
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->postJson('/api/logout');
 
-        $this->assertGuest();
-        $response->assertNoContent();
+        $response->assertStatus(200);
     }
 }

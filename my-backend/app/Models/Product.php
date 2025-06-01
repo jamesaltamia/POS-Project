@@ -4,16 +4,62 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
-        'category',
-        'price',
+        'sku',
         'description',
-        'image',
+        'price',
+        'category',
+        'barcode',
+        'unit',
+        'is_active',
+        'stock',
+        'low_stock_threshold',
+        'reorder_point'
     ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'is_active' => 'boolean',
+        'stock' => 'integer',
+        'low_stock_threshold' => 'integer',
+        'reorder_point' => 'integer'
+    ];
+
+    public function inventory()
+    {
+        return $this->hasOne(Inventory::class);
+    }
+
+    public function inventoryMovements()
+    {
+        return $this->hasMany(InventoryMovement::class);
+    }
+
+    public function getCurrentStockAttribute()
+    {
+        return $this->inventory?->quantity ?? 0;
+    }
+
+    public function isLowStock(): bool
+    {
+        if (!$this->inventory) {
+            return false;
+        }
+        return $this->inventory->quantity <= $this->inventory->low_stock_threshold;
+    }
+
+    public function needsReorder(): bool
+    {
+        if (!$this->inventory) {
+            return false;
+        }
+        return $this->inventory->quantity <= $this->inventory->reorder_point;
+    }
 }

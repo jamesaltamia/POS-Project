@@ -4,21 +4,29 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Inventory;
 use App\Models\Product;
+use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
 
 class InventoryController extends Controller
 {
     // List all inventory items
     public function index()
     {
-        $inventories = Inventory::with('product')->get()->map(function ($inventory) {
-            $data = $inventory->toArray();
-            $data['low_stock'] = $inventory->isLowStock();
-            return $data;
-        });
-
-        return response()->json($inventories);
+        return response()->json(
+            Inventory::with('product')
+                ->withCount(['stockHistory as total_sales' => function ($query) {
+                    $query->where('type', 'sale');
+                }])
+                ->get()
+                ->map(function ($inventory) {
+                    return array_merge($inventory->toArray(), [
+                        'status' => $inventory->getStockStatus(),
+                        'needs_reorder' => $inventory->needsReorder(),
+                    ]);
+                })
+        );
     }
 
     // Store a new inventory record
@@ -26,35 +34,46 @@ class InventoryController extends Controller
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|integer',
-            'low_stock_threshold' => 'nullable|integer',
+            'quantity' => 'required|integer|min:0',
+            'low_stock_threshold' => 'required|integer|min:0',
+            'reorder_point' => 'required|integer|min:0',
         ]);
 
         $inventory = Inventory::create($validated);
+        $inventory->checkLowStock();
 
-        return response()->json($inventory, 201);
+        return response()->json($inventory->load('product'), 201);
     }
 
     // Show a single inventory record
-    public function show($id)
+    public function show(Inventory $inventory)
     {
-        $inventory = Inventory::with('product')->findOrFail($id);
-        return response()->json($inventory);
+        return response()->json(
+            array_merge($inventory->load(['product', 'stockHistory'])->toArray(), [
+                'status' => $inventory->getStockStatus(),
+                'needs_reorder' => $inventory->needsReorder(),
+            ])
+        );
     }
 
     // Update inventory
-    public function update(Request $request, $id)
+    public function update(Request $request, Inventory $inventory)
     {
-        $inventory = Inventory::findOrFail($id);
-
         $validated = $request->validate([
-            'quantity' => 'sometimes|required|integer',
-            'low_stock_threshold' => 'nullable|integer',
+            'quantity' => 'sometimes|integer|min:0',
+            'low_stock_threshold' => 'sometimes|integer|min:0',
+            'reorder_point' => 'sometimes|integer|min:0',
         ]);
 
-        $inventory->update($validated);
+        if (isset($validated['quantity'])) {
+            $change = $validated['quantity'] - $inventory->quantity;
+            $inventory->adjustStock($change, 'adjustment', null, 'Manual adjustment');
+        }
 
-        return response()->json($inventory);
+        $inventory->update($validated);
+        $inventory->checkLowStock();
+
+        return response()->json($inventory->load('product'));
     }
 
     // Delete inventory record
@@ -66,25 +85,36 @@ class InventoryController extends Controller
         return response()->json(null, 204);
     }
 
-    public function inventoryReport()
+    public function restock(Request $request, Inventory $inventory)
     {
-        // Get all inventory with product info and low stock flag
-        $inventories = Inventory::with('product')->get()->map(function ($inventory) {
-            return [
-                'product_id' => $inventory->product_id,
-                'product_name' => $inventory->product->name ?? null,
-                'quantity' => $inventory->quantity,
-                'low_stock_threshold' => $inventory->low_stock_threshold,
-                'low_stock' => $inventory->isLowStock(),
-            ];
-        });
-
-        // Count of low stock items
-        $lowStockCount = $inventories->where('low_stock', true)->count();
-
-        return response()->json([
-            'inventories' => $inventories,
-            'low_stock_count' => $lowStockCount,
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'notes' => 'nullable|string',
         ]);
+
+        $inventory->restock($validated['quantity'], $validated['notes'] ?? null);
+
+        return response()->json($inventory->load('product'));
+    }
+
+    public function inventoryReport(Request $request)
+    {
+        $report = [
+            'total_products' => Product::count(),
+            'low_stock_items' => Inventory::whereRaw('quantity <= low_stock_threshold')->count(),
+            'reorder_needed' => Inventory::whereRaw('quantity <= reorder_point')->count(),
+            'total_value' => DB::raw('SUM(inventory.quantity * products.price) as total_value'),
+            'stock_movement' => InventoryMovement::selectRaw('
+                DATE(created_at) as date,
+                SUM(CASE WHEN type = "sale" THEN quantity ELSE 0 END) as sales,
+                SUM(CASE WHEN type = "restock" THEN quantity ELSE 0 END) as restocks
+            ')
+                ->groupBy('date')
+                ->orderBy('date', 'desc')
+                ->limit(30)
+                ->get(),
+        ];
+
+        return response()->json($report);
     }
 }

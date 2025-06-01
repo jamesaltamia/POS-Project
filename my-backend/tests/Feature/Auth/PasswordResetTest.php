@@ -3,10 +3,12 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use Laravel\Sanctum\Sanctum;
 
 class PasswordResetTest extends TestCase
 {
@@ -16,10 +18,15 @@ class PasswordResetTest extends TestCase
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role_id' => Role::where('name', Role::CASHIER)->first()->id
+        ]);
 
-        $this->post('/forgot-password', ['email' => $user->email]);
+        $response = $this->postJson('/api/forgot-password', [
+            'email' => $user->email
+        ]);
 
+        $response->assertStatus(200);
         Notification::assertSentTo($user, ResetPassword::class);
     }
 
@@ -27,21 +34,23 @@ class PasswordResetTest extends TestCase
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role_id' => Role::where('name', Role::CASHIER)->first()->id
+        ]);
 
-        $this->post('/forgot-password', ['email' => $user->email]);
+        $response = $this->postJson('/api/forgot-password', [
+            'email' => $user->email
+        ]);
 
         Notification::assertSentTo($user, ResetPassword::class, function (object $notification) use ($user) {
-            $response = $this->post('/reset-password', [
+            $response = $this->postJson('/api/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
-                'password' => 'password',
-                'password_confirmation' => 'password',
+                'password' => 'newpassword',
+                'password_confirmation' => 'newpassword',
             ]);
 
-            $response
-                ->assertSessionHasNoErrors()
-                ->assertStatus(200);
+            $response->assertStatus(200);
 
             return true;
         });
