@@ -1,20 +1,26 @@
- import React, { useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "../store";
-import { addTransaction } from "../store/slices/transactionSlice";
-import { Product } from "../store/slices/productSlice";
+import React, { useState } from "react";
+import { useSelector } from "react-redux";
+import type { RootState } from "../store";
+import type { Product } from "../store/slices/productSlice";
+import * as feedbackApi from '../api/feedback';
+import Spinner from '../components/Spinner';
+import { useNotification } from '../context/NotificationContext';
 
 const Transactions: React.FC = () => {
-  // State for cart, discount, payment, survey, and farewell message
-  const products = useSelector((state: RootState) => state.products.items);
-  const farewellMessages = ["Thank you for your purchase!", "Have a great day!", "We appreciate your business!"];
+  const { products, isLoading: productsLoading } = useSelector((state: RootState) => state.products);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
   const [discount, setDiscount] = useState(0);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyRating, setSurveyRating] = useState<number | null>(null);
-  const [farewell, setFarewell] = useState(farewellMessages[0]);
-  const dispatch = useDispatch();
+  const [farewell, setFarewell] = useState('Thank you for your purchase!');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const { showNotification } = useNotification();
+  const farewellMessages = [
+    "Thank you for your purchase!",
+    "Have a great day!",
+    "We appreciate your business!"
+  ];
 
   // Add product to cart
   const handleAddToCart = (product: Product) => {
@@ -32,7 +38,7 @@ const Transactions: React.FC = () => {
   };
 
   // Remove product from cart
-  const handleRemoveFromCart = (productId: number) => {
+  const handleRemoveFromCart = (productId: string) => {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
@@ -45,16 +51,8 @@ const Transactions: React.FC = () => {
 
   // Handle payment
   const handleCheckout = () => {
-    // Dispatch transaction (stub)
-    dispatch(
-      addTransaction({
-        items: cart,
-        total,
-        discount,
-        finalTotal: discountedTotal,
-        date: new Date().toISOString(),
-      })
-    );
+    // TODO: Dispatch transaction (stub)
+    // dispatch(addTransaction({ ... }))
     setShowReceipt(true);
     setShowSurvey(true);
     setFarewell(
@@ -65,9 +63,19 @@ const Transactions: React.FC = () => {
   };
 
   // Handle survey submit
-  const handleSurveySubmit = () => {
-    // Save feedback (stub)
-    setShowSurvey(false);
+  const handleSurveySubmit = async () => {
+    if (surveyRating === null) return;
+    setFeedbackLoading(true);
+    try {
+      await feedbackApi.submitFeedback({ rating: surveyRating });
+      showNotification('Thank you for your feedback!', 'success');
+      setShowSurvey(false);
+      setSurveyRating(null);
+    } catch (err: any) {
+      showNotification('Failed to submit feedback', 'error');
+    } finally {
+      setFeedbackLoading(false);
+    }
   };
 
   // Print receipt (stub)
@@ -83,12 +91,13 @@ const Transactions: React.FC = () => {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Point of Sale (POS)</h1>
+      {productsLoading && <Spinner />}
 
       {/* Product Selection */}
       <section className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Products</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {products.map((product) => (
+          {products.map((product: Product) => (
             <div
               key={product.id}
               className="border rounded p-2 flex flex-col items-center"
@@ -210,6 +219,7 @@ const Transactions: React.FC = () => {
                     : "bg-gray-200 hover:bg-yellow-200"
                 }`}
                 onClick={() => setSurveyRating(rating)}
+                disabled={feedbackLoading}
               >
                 {rating} ⭐
               </button>
@@ -218,9 +228,9 @@ const Transactions: React.FC = () => {
           <button
             className="mt-2 px-4 py-1 bg-green-500 text-white rounded"
             onClick={handleSurveySubmit}
-            disabled={surveyRating === null}
+            disabled={surveyRating === null || feedbackLoading}
           >
-            Submit Feedback
+            {feedbackLoading ? 'Submitting...' : 'Submit Feedback'}
           </button>
         </section>
       )}

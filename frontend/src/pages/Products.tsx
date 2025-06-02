@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   MagnifyingGlassIcon,
@@ -7,12 +6,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import type { RootState } from '../store';
-import type { Product } from '../store/slices/productSlice';
 import {
-  setProducts,
-  addProduct,
-  updateProduct,
-  deleteProduct,
   setFilters,
 } from '../store/slices/productSlice';
 
@@ -21,8 +15,6 @@ const Products = () => {
   const { products, filters, isLoading } = useSelector(
     (state: RootState) => state.products
   );
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSearch = (search: string) => {
     dispatch(setFilters({ search }));
@@ -62,10 +54,6 @@ const Products = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
         <button
-          onClick={() => {
-            setSelectedProduct(null);
-            setIsModalOpen(true);
-          }}
           className="btn"
         >
           <PlusIcon className="h-5 w-5 mr-2" />
@@ -205,24 +193,11 @@ const Products = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <button
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setIsModalOpen(true);
-                      }}
                       className="text-indigo-600 hover:text-indigo-900 mr-3"
                     >
                       <PencilIcon className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            'Are you sure you want to delete this product?'
-                          )
-                        ) {
-                          dispatch(deleteProduct(product.id));
-                        }
-                      }}
                       className="text-red-600 hover:text-red-900"
                     >
                       <TrashIcon className="h-5 w-5" />

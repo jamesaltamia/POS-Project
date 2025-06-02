@@ -3,6 +3,8 @@ import authReducer from './slices/authSlice';
 import productReducer from './slices/productSlice';
 import transactionReducer from './slices/transactionSlice';
 import feedbackReducer from './slices/feedbackSlice';
+import userReducer from './slices/userSlice';
+import farewellMessageReducer from './slices/farewellMessageSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +12,8 @@ export const store = configureStore({
     products: productReducer,
     transactions: transactionReducer,
     feedback: feedbackReducer,
+    users: userReducer,
+    farewellMessages: farewellMessageReducer,
   },
 });
 

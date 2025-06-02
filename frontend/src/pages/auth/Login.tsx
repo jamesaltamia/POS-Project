@@ -4,6 +4,8 @@ import * as yup from 'yup';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { setCredentials } from '../../store/slices/authSlice';
+import { getCsrfCookie, login } from '../../api/auth';
+import { useState } from 'react';
 
 interface LoginFormData {
   email: string;
@@ -18,7 +20,8 @@ const schema = yup.object({
 const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -28,67 +31,54 @@ const Login = () => {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    setLoginError(null);
     try {
-      // TODO: Replace with actual API call
-      const response = {
-        user: {
-          id: '1',
-          username: 'demo',
-          email: data.email,
-          role: 'admin' as const,
-        },
-        token: 'demo-token',
-      };
-
-      dispatch(setCredentials(response));
+      await getCsrfCookie();
+      const user = await login(data.email, data.password);
+      dispatch(setCredentials({ user, token: '' }));
       navigate('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
+      setLoginError(
+        error?.response?.data?.message ||
+        'Login failed. Please check your credentials and try again.'
+      );
       console.error('Login failed:', error);
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {loginError && (
+        <div className="text-red-600 text-sm text-center">{loginError}</div>
+      )}
       <div>
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
           Email
         </label>
         <input
           type="email"
           id="email"
           {...register('email')}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-            errors.email ? 'border-red-500' : ''
-          }`}
+          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${errors.email ? 'border-red-500' : ''}`}
         />
         {errors.email && (
           <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
-
       <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
           Password
         </label>
         <input
           type="password"
           id="password"
           {...register('password')}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-            errors.password ? 'border-red-500' : ''
-          }`}
+          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${errors.password ? 'border-red-500' : ''}`}
         />
         {errors.password && (
           <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
         )}
       </div>
-
       <button
         type="submit"
         disabled={isSubmitting}

@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
+import Spinner from '../components/Spinner';
+import { useNotification } from '../context/NotificationContext';
+import * as transactionApi from '../api/transactions';
+import * as productApi from '../api/products';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,15 +31,40 @@ ChartJS.register(
 
 const Dashboard = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { transactions } = useSelector((state: RootState) => state.transactions);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { showNotification } = useNotification();
 
-  // Sample data for charts
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [txs, prods] = await Promise.all([
+          transactionApi.getTransactions(),
+          productApi.getProducts(),
+        ]);
+        setTransactions(txs);
+        setProducts(prods);
+        setError(null);
+      } catch (err: any) {
+        setError('Failed to fetch dashboard data');
+        showNotification('Failed to fetch dashboard data', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [showNotification]);
+
+  // TODO: Replace with real calculations based on transactions/products
   const salesData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
         label: 'Sales',
-        data: [12000, 19000, 15000, 25000, 22000, 30000],
+        data: [12000, 19000, 15000, 25000, 22000, 30000], // TODO: Replace with real data
         borderColor: 'rgb(75, 192, 192)',
         tension: 0.1,
       },
@@ -42,11 +72,11 @@ const Dashboard = () => {
   };
 
   const productData = {
-    labels: ['Product A', 'Product B', 'Product C', 'Product D', 'Product E'],
+    labels: products.slice(0, 5).map((p) => p.name),
     datasets: [
       {
         label: 'Top Selling Products',
-        data: [150, 120, 100, 80, 50],
+        data: products.slice(0, 5).map((p) => p.sold || 0), // TODO: Replace with real data
         backgroundColor: [
           'rgba(255, 99, 132, 0.5)',
           'rgba(54, 162, 235, 0.5)',
@@ -57,6 +87,9 @@ const Dashboard = () => {
       },
     ],
   };
+
+  if (loading) return <Spinner />;
+  if (error) return <div className="text-red-500 p-6">{error}</div>;
 
   return (
     <div className="space-y-6">

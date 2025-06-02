@@ -1,5 +1,9 @@
-import { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useEffect, useState } from 'react';
+import Spinner from '../components/Spinner';
+import { useNotification } from '../context/NotificationContext';
+import * as transactionApi from '../api/transactions';
+import * as productApi from '../api/products';
+import * as feedbackApi from '../api/feedback';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,7 +17,6 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Line, Bar, Pie } from 'react-chartjs-2';
-import type { RootState } from '../store';
 
 ChartJS.register(
   CategoryScale,
@@ -28,23 +31,49 @@ ChartJS.register(
 );
 
 const Reports = () => {
-  const { transactions } = useSelector((state: RootState) => state.transactions);
-  const { products } = useSelector((state: RootState) => state.products);
+  const { showNotification } = useNotification();
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week');
+  const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // Sample data for demonstration
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [txs, prods, fb] = await Promise.all([
+          transactionApi.getTransactions(),
+          productApi.getProducts(),
+          feedbackApi.getFeedback(),
+        ]);
+        setTransactions(txs);
+        setProducts(prods);
+        setError(null);
+      } catch (err: any) {
+        setError('Failed to fetch report data');
+        showNotification('Failed to fetch report data', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [showNotification]);
+
+  // Example: Calculate sales by day/week/month, top products, etc.
+  // You can replace these with real calculations based on your backend data structure
   const salesData = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         label: 'Sales',
-        data: [12000, 19000, 15000, 25000, 22000, 30000, 28000],
+        data: [12000, 19000, 15000, 25000, 22000, 30000, 28000], // TODO: Replace with real data
         borderColor: 'rgb(75, 192, 192)',
         tension: 0.1,
       },
       {
         label: 'Profit',
-        data: [8000, 12000, 9000, 17000, 15000, 21000, 19000],
+        data: [8000, 12000, 9000, 17000, 15000, 21000, 19000], // TODO: Replace with real data
         borderColor: 'rgb(153, 102, 255)',
         tension: 0.1,
       },
@@ -56,7 +85,7 @@ const Reports = () => {
     datasets: [
       {
         label: 'Sales by Category',
-        data: [30, 25, 20, 15, 10],
+        data: [30, 25, 20, 15, 10], // TODO: Replace with real data
         backgroundColor: [
           'rgba(255, 99, 132, 0.5)',
           'rgba(54, 162, 235, 0.5)',
@@ -72,11 +101,14 @@ const Reports = () => {
     labels: ['Cash', 'Card'],
     datasets: [
       {
-        data: [60, 40],
+        data: [60, 40], // TODO: Replace with real data
         backgroundColor: ['rgba(75, 192, 192, 0.5)', 'rgba(153, 102, 255, 0.5)'],
       },
     ],
   };
+
+  if (loading) return <Spinner />;
+  if (error) return <div className="text-red-500 p-6">{error}</div>;
 
   return (
     <div className="space-y-6">

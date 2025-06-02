@@ -46,24 +46,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('transactions', TransactionController::class)->except(['update', 'destroy']);
         Route::post('transactions/{transaction}/cancel', [TransactionController::class, 'cancel']);
         Route::get('transactions/{transaction}/receipt', [TransactionController::class, 'receipt']);
-        Route::apiResource('feedback', FeedbackController::class)->only(['store']);
-        Route::get('farewell-message/random', [FarewellMessageController::class, 'random']);
+        Route::post('feedback', [FeedbackController::class, 'store']);
+        Route::get('farewell-messages/random', [FarewellMessageController::class, 'random']);
         Route::get('inventories/{inventory}', [InventoryController::class, 'show']);
     });
 
-    // Products
-    Route::apiResource('products', ProductController::class);
-    Route::post('/products/{product}/adjust-stock', [ProductController::class, 'adjustStock']);
-
-    // Transactions
-    Route::apiResource('transactions', TransactionController::class);
-    Route::post('/transactions/{transaction}/cancel', [TransactionController::class, 'cancel']);
-    Route::get('/transactions/{transaction}/receipt', [TransactionController::class, 'receipt']);
-
-    // Feedback routes
-    Route::post('feedback', [FeedbackController::class, 'store']);
-    Route::get('reports/feedback', [FeedbackController::class, 'feedbackReport'])
-        ->middleware('role:administrator,manager');
+    // Feedback routes (for all authenticated users)
+    Route::post('/feedback', [FeedbackController::class, 'store']);
+    Route::get('/feedback', [FeedbackController::class, 'index']);
 
     // Farewell message routes
     Route::get('farewell-messages/random', [FarewellMessageController::class, 'random']);
