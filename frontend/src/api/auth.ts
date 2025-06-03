@@ -1,26 +1,25 @@
 import api from './axios';
 
 export const getCsrfCookie = async () => {
-  await api.get('/sanctum/csrf-cookie', {
-    baseURL: import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000',
-  });
+  await api.get('/sanctum/csrf-cookie');
 };
 
 export const login = async (email: string, password: string) => {
-  const { data } = await api.post('/login', { email, password });
-  return data.user || data; // Expecting user object from backend
+  await getCsrfCookie();
+  const { data } = await api.post('/api/login', { email, password });
+  return data; // Return the whole response, not just data.user
 };
 
 export const logout = async () => {
-  await api.post('/logout');
+  await api.post('/api/logout');
 };
 
 export const register = async (user: { username: string; email: string; password: string }) => {
-  const { data } = await api.post('/register', user);
+  const { data } = await api.post('/api/register', user);
   return data;
 };
 
 export const getCurrentUser = async () => {
-  const { data } = await api.get('/user');
+  const { data } = await api.get('/api/user');
   return data;
 }; 

@@ -8,6 +8,9 @@ use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
+
 
 class AuthController extends Controller
 {
@@ -42,17 +45,18 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            return response()->json([
+                'message' => 'The provided credentials are incorrect.'
+            ], 422);
         }
 
+        $request->session()->regenerate();
+        $user = $request->user()->load('role');
+        $token = $user->createToken('auth_token')->plainTextToken;
         return response()->json([
-            'token' => $user->createToken('auth_token')->plainTextToken,
             'user' => $user,
+            'token' => $token
         ]);
     }
 

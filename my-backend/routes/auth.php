@@ -11,9 +11,9 @@ Route::post('/register', [AuthController::class, 'register'])
     ->middleware('guest')
     ->name('register');
 
-Route::post('/login', [AuthController::class, 'login'])
-    ->middleware('guest')
-    ->name('login');
+// Route::post('/login', [AuthController::class, 'login'])
+//     ->middleware('guest')
+//     ->name('login');
 
 Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
     ->middleware('guest')
@@ -31,6 +31,6 @@ Route::post('/email/verification-notification', [EmailVerificationNotificationCo
     ->middleware(['auth:sanctum', 'throttle:6,1'])
     ->name('verification.send');
 
-Route::post('/logout', [AuthController::class, 'logout'])
-    ->middleware('auth:sanctum')
-    ->name('logout');
+// Route::post('/logout', [AuthController::class, 'logout'])
+//     ->middleware('auth:sanctum')
+//     ->name('logout');

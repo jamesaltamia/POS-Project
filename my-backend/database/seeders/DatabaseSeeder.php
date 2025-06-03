@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 class DatabaseSeeder extends Seeder
@@ -44,5 +45,12 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('password'),
             'role_id' => $cashierRole->id
         ]);
+
+        // User::create([
+        //     'name' => 'Admin',
+        //     'email' => 'admin@example.com',
+        //     'password' => Hash::make('password'), // Change as needed
+        //     'role_id' => 1 // Make sure this role_id exists
+        // ]);
     }
 }

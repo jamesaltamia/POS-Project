@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import type { RootState } from '../../store';
 import { logout } from '../../store/slices/authSlice';
+import { logout as logoutApi } from '../../api/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -28,7 +29,12 @@ const MainLayout = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+    } catch (e) {
+      // Optionally handle error
+    }
     dispatch(logout());
     navigate('/login');
   };
@@ -49,7 +55,7 @@ const MainLayout = () => {
         } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:h-screen`}
       >
         <div className="h-16 flex items-center justify-between px-4 bg-indigo-600">
-          <h1 className="text-xl font-bold text-white">POS System</h1>
+          <h1 className="text-xl font-bold text-white">MeowMart POS</h1>
           <button
             className="md:hidden text-white"
             onClick={() => setSidebarOpen(false)}

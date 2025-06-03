@@ -15,12 +15,26 @@ interface AuthState {
   error: string | null;
 }
 
-const initialState: AuthState = {
-  user: null,
-  token: localStorage.getItem('token'),
-  isLoading: false,
-  error: null,
+const getInitialAuthState = () => {
+  const token = localStorage.getItem('token');
+  let user = null;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr && userStr !== 'undefined') {
+      user = JSON.parse(userStr);
+    }
+  } catch {
+    user = null;
+  }
+  return {
+    user,
+    token: token || null,
+    isLoading: false,
+    error: null,
+  };
 };
+
+const initialState: AuthState = getInitialAuthState();
 
 const authSlice = createSlice({
   name: 'auth',
@@ -34,11 +48,13 @@ const authSlice = createSlice({
       state.user = user;
       state.token = token;
       localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;

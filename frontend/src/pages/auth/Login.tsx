@@ -34,12 +34,34 @@ const Login = () => {
     setLoginError(null);
     try {
       await getCsrfCookie();
-      const user = await login(data.email, data.password);
-      dispatch(setCredentials({ user, token: '' }));
+      const response = await login(data.email, data.password);
+      console.log('Login API response:', response);
+
+      // Check if the response contains a user object
+      if (!response || !response.user) {
+        // Prefer backend message if available, else fallback
+        setLoginError(
+          response?.message ||
+          'Login failed. Please check your credentials and try again.'
+        );
+        return;
+      }
+
+      // Normalize backend user object to frontend shape
+      const backendUser = response.user;
+      const user = {
+        id: backendUser.id,
+        username: backendUser.name,
+        email: backendUser.email,
+        role: backendUser.role?.name || 'cashier',
+      };
+      dispatch(setCredentials({ user, token: response.token }));
       navigate('/dashboard');
     } catch (error: any) {
+      // Prefer backend error message if available
       setLoginError(
         error?.response?.data?.message ||
+        error?.message ||
         'Login failed. Please check your credentials and try again.'
       );
       console.error('Login failed:', error);
