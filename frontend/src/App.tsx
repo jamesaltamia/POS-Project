@@ -12,6 +12,9 @@ import Users from './pages/Users';
 import FarewellMessages from './pages/FarewellMessages';
 import NotFound from './pages/NotFound';
 import { NotificationProvider } from './context/NotificationContext';
+import AdminDashboard from './pages/AdminDashboard';
+import ManagerDashboard from './pages/ManagerDashboard';
+import CashierDashboard from './pages/CashierDashboard';
 
 function App() {
   return (
@@ -22,10 +25,21 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
           </Route>
+          {/* Admin Dashboard */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'administrator']} />}>
+            <Route path="/dashboard" element={<AdminDashboard />} />
+          </Route>
+          {/* Manager Dashboard */}
+          <Route element={<ProtectedRoute allowedRoles={['manager']} />}>
+            <Route path="/manager" element={<ManagerDashboard />} />
+          </Route>
+          {/* Cashier Dashboard */}
+          <Route element={<ProtectedRoute allowedRoles={['cashier']} />}>
+            <Route path="/cashier" element={<CashierDashboard />} />
+          </Route>
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/products" element={<Products />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/reports" element={<Reports />} />
@@ -34,7 +48,8 @@ function App() {
               <Route path="/farewell-messages" element={<FarewellMessages />} />
             </Route>
           </Route>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Fallback */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

@@ -35,7 +35,7 @@ const Reports = () => {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week');
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<any | any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -59,6 +59,12 @@ const Reports = () => {
     };
     fetchData();
   }, [showNotification]);
+
+  const productList = Array.isArray(products)
+    ? products
+    : Array.isArray(products?.data)
+      ? products.data
+      : [];
 
   // Example: Calculate sales by day/week/month, top products, etc.
   // You can replace these with real calculations based on your backend data structure
@@ -317,7 +323,7 @@ const Reports = () => {
             Top Selling Products
           </h2>
           <div className="space-y-4">
-            {products.slice(0, 5).map((product) => (
+            {productList.slice(0, 5).map((product: any) => (
               <div
                 key={product.id}
                 className="flex items-center justify-between"

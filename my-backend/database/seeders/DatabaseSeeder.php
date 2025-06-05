@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
         $adminRole = Role::where('name', Role::ADMIN)->first();
         User::factory()->create([
             'name' => 'Admin User',
-            'email' => 'admin@example.com',
+            'email' => 'admin@meowmart.com',
             'password' => bcrypt('password'),
             'role_id' => $adminRole->id
         ]);
@@ -32,7 +32,7 @@ class DatabaseSeeder extends Seeder
         $managerRole = Role::where('name', Role::MANAGER)->first();
         User::factory()->create([
             'name' => 'Manager User',
-            'email' => 'manager@example.com',
+            'email' => 'manager@meowmart.com',
             'password' => bcrypt('password'),
             'role_id' => $managerRole->id
         ]);
@@ -41,9 +41,18 @@ class DatabaseSeeder extends Seeder
         $cashierRole = Role::where('name', Role::CASHIER)->first();
         User::factory()->create([
             'name' => 'Cashier User',
-            'email' => 'cashier@example.com',
+            'email' => 'cashier@meowmart.com',
             'password' => bcrypt('password'),
             'role_id' => $cashierRole->id
+        ]);
+
+        // Create admin user with 'admin' role
+        $adminRole2 = Role::where('name', 'admin')->first();
+        User::factory()->create([
+            'name' => 'Admin2 User',
+            'email' => 'admin2@meowmart.com',
+            'password' => bcrypt('password'),
+            'role_id' => $adminRole2->id
         ]);
 
         // User::create([

@@ -53,10 +53,20 @@ const Login = () => {
         id: backendUser.id,
         username: backendUser.name,
         email: backendUser.email,
-        role: backendUser.role?.name || 'cashier',
+        role: typeof backendUser.role === 'string'
+          ? backendUser.role
+          : backendUser.role?.name || 'cashier',
       };
       dispatch(setCredentials({ user, token: response.token }));
-      navigate('/dashboard');
+      if (user.role === 'admin' || user.role === 'administrator') {
+        navigate('/dashboard');
+      } else if (user.role === 'manager') {
+        navigate('/manager');
+      } else if (user.role === 'cashier') {
+        navigate('/cashier');
+      } else {
+        navigate('/login');
+      }
     } catch (error: any) {
       // Prefer backend error message if available
       setLoginError(

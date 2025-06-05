@@ -1,0 +1,23 @@
+import React from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
+import DashboardSidebar from '../components/layouts/DashboardSidebar';
+import DashboardTopbar from '../components/layouts/DashboardTopbar';
+
+const ManagerDashboard = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <DashboardTopbar />
+      <div className="flex flex-1">
+        <DashboardSidebar role={user?.role || 'manager'} />
+        <main className="flex-1 p-8">
+          <h1 className="text-2xl font-bold mb-4">Manager Dashboard</h1>
+          <p>Welcome, Manager! Here you can view sales, manage products, and more.</p>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default ManagerDashboard; 

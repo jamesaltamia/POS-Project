@@ -23,7 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Admin routes
-    Route::middleware('role:administrator')->group(function () {
+    Route::middleware('role:administrator,admin')->group(function () {
         Route::apiResource('users', UserController::class);
         Route::post('roles/{role}/permissions', [UserController::class, 'updateRolePermissions']);
     });
@@ -58,6 +58,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('farewell-messages/random', [FarewellMessageController::class, 'random']);
     Route::get('farewell-messages/occasions', [FarewellMessageController::class, 'occasions']);
     Route::get('farewell-messages/languages', [FarewellMessageController::class, 'languages']);
+
+    // Add fallback routes for main resources for all authenticated users
+    Route::get('products', [ProductController::class, 'index']);
+    Route::get('transactions', [TransactionController::class, 'index']);
+    Route::get('feedback', [FeedbackController::class, 'index']);
+    Route::get('farewell-messages', [FarewellMessageController::class, 'index']);
 });
 
 require __DIR__ . '/auth.php';
