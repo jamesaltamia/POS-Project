@@ -35,19 +35,13 @@ const Login = () => {
     try {
       await getCsrfCookie();
       const response = await login(data.email, data.password);
-      console.log('Login API response:', response);
-
-      // Check if the response contains a user object
       if (!response || !response.user) {
-        // Prefer backend message if available, else fallback
         setLoginError(
           response?.message ||
           'Login failed. Please check your credentials and try again.'
         );
         return;
       }
-
-      // Normalize backend user object to frontend shape
       const backendUser = response.user;
       const user = {
         id: backendUser.id,
@@ -68,57 +62,84 @@ const Login = () => {
         navigate('/login');
       }
     } catch (error: any) {
-      // Prefer backend error message if available
       setLoginError(
         error?.response?.data?.message ||
         error?.message ||
         'Login failed. Please check your credentials and try again.'
       );
-      console.error('Login failed:', error);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {loginError && (
-        <div className="text-red-600 text-sm text-center">{loginError}</div>
-      )}
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-          Email
-        </label>
-        <input
-          type="email"
-          id="email"
-          {...register('email')}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${errors.email ? 'border-red-500' : ''}`}
-        />
-        {errors.email && (
-          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-        )}
-      </div>
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          Password
-        </label>
-        <input
-          type="password"
-          id="password"
-          {...register('password')}
-          className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${errors.password ? 'border-red-500' : ''}`}
-        />
-        {errors.password && (
-          <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-        )}
-      </div>
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+    <div
+      className="min-h-screen w-full flex items-center justify-center relative overflow-hidden"
+      style={{
+        backgroundColor: '#f7ecd7',
+        backgroundImage: 'url(/img/background.png)',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col items-center bg-transparent p-8 rounded-lg w-full max-w-md"
       >
-        {isSubmitting ? 'Signing in...' : 'Sign in'}
-      </button>
-    </form>
+        {/* Logo */}
+        <img src="/img/logo.png" alt="MeowMart Logo" className="w-72 mb-2" />
+        {/* Title */}
+        <h1 className="text-5xl font-extrabold text-[#4a1c0a] mb-6 tracking-wide">LOGIN</h1>
+
+        {loginError && (
+          <div className="text-red-600 text-sm text-center mb-2">{loginError}</div>
+        )}
+
+        {/* Username/Email */}
+        <div className="relative w-full mb-4">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a1c0a]">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 1115 0v.75a.75.75 0 01-.75.75h-13.5a.75.75 0 01-.75-.75v-.75z" />
+            </svg>
+          </span>
+          <input
+            type="email"
+            placeholder="username or email"
+            {...register('email')}
+            className={`pl-12 pr-4 py-3 w-full rounded-lg bg-[#ffe2a9] text-[#4a1c0a] placeholder-[#4a1c0a] border-none focus:ring-2 focus:ring-[#4a1c0a] ${errors.email ? 'ring-2 ring-red-500' : ''}`}
+          />
+          {errors.email && (
+            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+          )}
+        </div>
+
+        {/* Password */}
+        <div className="relative w-full mb-6">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a1c0a]">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75A4.5 4.5 0 008 6.75v3.75m8.25 0a2.25 2.25 0 012.25 2.25v3.75a2.25 2.25 0 01-2.25 2.25H7.5a2.25 2.25 0 01-2.25-2.25v-3.75a2.25 2.25 0 012.25-2.25m8.25 0h-8.25" />
+            </svg>
+          </span>
+          <input
+            type="password"
+            placeholder="password"
+            {...register('password')}
+            className={`pl-12 pr-4 py-3 w-full rounded-lg bg-[#ffe2a9] text-[#4a1c0a] placeholder-[#4a1c0a] border-none focus:ring-2 focus:ring-[#4a1c0a] ${errors.password ? 'ring-2 ring-red-500' : ''}`}
+          />
+          {errors.password && (
+            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+          )}
+        </div>
+
+        {/* Login Button */}
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-[#4a1c0a] text-[#ffe2a9] font-semibold py-2 px-12 rounded-full text-lg hover:bg-[#2d1206] transition disabled:opacity-50"
+        >
+          {isSubmitting ? 'Signing in...' : 'Login'}
+        </button>
+      </form>
+    </div>
   );
 };
 
