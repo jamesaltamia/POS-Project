@@ -5,18 +5,20 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 
-class CheckRole
+class RoleAccess
 {
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        if (!$request->user()) {
+        $user = $request->user();
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-
-        if (!$request->user()->hasAnyRole($roles)) {
+        if (!$user->role) {
+            return response()->json(['message' => 'User has no role assigned'], 403);
+        }
+        if (!in_array($user->role->name, $roles)) {
             return response()->json(['message' => 'Access denied'], 403);
         }
-
         return $next($request);
     }
 }

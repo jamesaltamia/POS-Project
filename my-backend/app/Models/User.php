@@ -41,6 +41,10 @@ class User extends Authenticatable
 
     public function hasAnyRole($roles)
     {
+        // If the user has no role assigned, return false
+        if (!$this->role) {
+            return false;
+        }
         return in_array($this->role->name, (array) $roles);
     }
 

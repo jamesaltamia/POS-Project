@@ -10,6 +10,17 @@ const roleOptions = [
   { value: 'cashier', label: 'Cashier' },
 ];
 
+const roleLabels: Record<string, string> = {
+  admin: 'Administrator',
+  manager: 'Manager',
+  cashier: 'Cashier',
+};
+const roleColors: Record<string, string> = {
+  admin: 'bg-yellow-300 text-brown-800',
+  manager: 'bg-blue-400 text-white',
+  cashier: 'bg-green-400 text-white',
+};
+
 const Users = () => {
   const dispatch = useDispatch();
   const { users, isLoading, error } = useSelector((state: RootState) => state.users);
@@ -201,39 +212,47 @@ const Users = () => {
           </div>
         </div>
       )}
-      <div className="overflow-x-auto bg-white rounded shadow">
+      <div className="overflow-x-auto bg-yellow-50 rounded-xl shadow-lg">
         {isLoading ? (
           <div className="p-8 text-center text-gray-500">Loading...</div>
         ) : error ? (
           <div className="p-8 text-center text-red-500">{error}</div>
         ) : (
-          <table className="min-w-full text-sm">
+          <table className="min-w-full rounded-lg overflow-hidden">
             <thead>
-              <tr className="bg-pink-50 text-pink-700">
+              <tr className="bg-brown-700 text-white">
+                <th className="px-4 py-2 text-left">ID</th>
                 <th className="px-4 py-2 text-left">Username</th>
-                <th className="px-4 py-2 text-left">Email</th>
                 <th className="px-4 py-2 text-left">Role</th>
                 <th className="px-4 py-2 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
+              {users.map((user, idx) => (
+                <tr key={user.id} className={idx % 2 === 0 ? "bg-yellow-100" : "bg-white"}>
+                  <td className="px-4 py-2">{user.id}</td>
                   <td className="px-4 py-2">{user.username}</td>
-                  <td className="px-4 py-2">{user.email}</td>
-                  <td className="px-4 py-2">{user.role}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-3 py-1 rounded font-semibold text-sm ${roleColors[user.role] || 'bg-gray-200 text-gray-700'}`}
+                    >
+                      {roleLabels[user.role] || user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">
                     <button
-                      className="text-blue-600 hover:underline mr-2"
+                      className="text-brown-700 hover:text-brown-900 mr-3"
                       onClick={() => handleOpenEditModal(user)}
+                      title="Edit"
                     >
-                      Edit
+                      <svg className="inline w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V21h8"></path></svg>
                     </button>
                     <button
-                      className="text-red-600 hover:underline"
+                      className="text-red-500 hover:text-red-700"
                       onClick={() => setDeleteId(user.id)}
+                      title="Delete"
                     >
-                      Delete
+                      <svg className="inline w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                   </td>
                 </tr>

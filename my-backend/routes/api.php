@@ -23,13 +23,13 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Admin routes
-    Route::middleware('role:administrator,admin')->group(function () {
+    Route::middleware('roleaccess:administrator,admin')->group(function () {
         Route::apiResource('users', UserController::class);
         Route::post('roles/{role}/permissions', [UserController::class, 'updateRolePermissions']);
     });
 
     // Manager routes
-    Route::middleware('role:administrator,manager')->group(function () {
+    Route::middleware('roleaccess:administrator,manager')->group(function () {
         Route::apiResource('products', ProductController::class);
         Route::apiResource('inventories', InventoryController::class);
         Route::post('inventories/{inventory}/restock', [InventoryController::class, 'restock']);
@@ -40,7 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Cashier routes
-    Route::middleware('role:administrator,manager,cashier')->group(function () {
+    Route::middleware('roleaccess:administrator,manager,cashier')->group(function () {
         Route::get('products', [ProductController::class, 'index']);
         Route::apiResource('transactions', TransactionController::class)->except(['update', 'destroy']);
         Route::post('transactions/{transaction}/cancel', [TransactionController::class, 'cancel']);
@@ -64,6 +64,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('transactions', [TransactionController::class, 'index']);
     Route::get('feedback', [FeedbackController::class, 'index']);
     Route::get('farewell-messages', [FarewellMessageController::class, 'index']);
+});
+
+Route::middleware('checkrole:admin')->get('/test-role', function () {
+    return response()->json(['success' => true]);
 });
 
 require __DIR__ . '/auth.php';
