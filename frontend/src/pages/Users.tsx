@@ -1,268 +1,281 @@
-import React, { useEffect, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import type { RootState } from '../store';
-import { setUsers, addUser, updateUser, deleteUser, setLoading, setError } from '../store/slices/userSlice';
-import * as userApi from '../api/users';
+import React from "react";
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button,
+} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
 
-const roleOptions = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'cashier', label: 'Cashier' },
-];
+interface User {
+  id: string;
+  username: string;
+  role: "Administrator" | "Manager" | "Cashier";
+}
 
-const roleLabels: Record<string, string> = {
-  admin: 'Administrator',
-  manager: 'Manager',
-  cashier: 'Cashier',
-};
-const roleColors: Record<string, string> = {
-  admin: 'bg-yellow-300 text-brown-800',
-  manager: 'bg-blue-400 text-white',
-  cashier: 'bg-green-400 text-white',
-};
+const UserManagement: React.FC = () => {
+  const [users, setUsers] = React.useState<User[]>([
+    { id: "u001", username: "admin", role: "Administrator" },
+    { id: "u002", username: "manager1", role: "Manager" },
+    { id: "u003", username: "cashier1", role: "Cashier" },
+  ]);
+  const [openDialog, setOpenDialog] = React.useState(false);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [formData, setFormData] = React.useState({
+    username: "",
+    role: "Cashier" as "Administrator" | "Manager" | "Cashier",
+  });
 
-const Users = () => {
-  const dispatch = useDispatch();
-  const { users, isLoading, error } = useSelector((state: RootState) => state.users);
-  const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-  const [form, setForm] = useState({ id: '', username: '', email: '', password: '', role: 'cashier' });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        dispatch(setLoading(true));
-        const data = await userApi.getUsers();
-        dispatch(setUsers(data));
-        dispatch(setLoading(false));
-      } catch (err: any) {
-        dispatch(setError('Failed to fetch users'));
-        dispatch(setLoading(false));
-      }
-    };
-    fetchUsers();
-  }, [dispatch]);
-
-  const handleOpenAddModal = () => {
-    setForm({ id: '', username: '', email: '', password: '', role: 'cashier' });
-    setFormError(null);
-    setModalMode('add');
-    setShowModal(true);
-  };
-
-  const handleOpenEditModal = (user: any) => {
-    setForm({ id: user.id, username: user.username, email: user.email, password: '', role: user.role });
-    setFormError(null);
-    setModalMode('edit');
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setFormError(null);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    setSubmitting(true);
-    try {
-      if (modalMode === 'add') {
-        const newUser = await userApi.createUser(form);
-        dispatch(addUser(newUser));
-        setShowModal(false);
-      } else {
-        const updated = await userApi.updateUser(form.id, {
-          username: form.username,
-          email: form.email,
-          password: form.password || undefined, // Only send if changed
-          role: form.role,
-        });
-        dispatch(updateUser(updated));
-        setShowModal(false);
-      }
-    } catch (err: any) {
-      setFormError(err?.response?.data?.message || 'Failed to save user');
-    } finally {
-      setSubmitting(false);
+  const handleOpenDialog = (user?: User) => {
+    if (user) {
+      setCurrentUser(user);
+      setFormData({ username: user.username, role: user.role });
+    } else {
+      setCurrentUser(null);
+      setFormData({ username: "", role: "Cashier" });
     }
+    setOpenDialog(true);
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleteLoading(true);
-    setDeleteError(null);
-    try {
-      await userApi.deleteUser(deleteId);
-      dispatch(deleteUser(deleteId));
-      setDeleteId(null);
-    } catch (err: any) {
-      setDeleteError(err?.response?.data?.message || 'Failed to delete user');
-    } finally {
-      setDeleteLoading(false);
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+  };
+
+  const handleTextFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSelectChange = (e: any) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = () => {
+    if (currentUser) {
+      // Edit user
+      setUsers(
+        users.map((u) =>
+          u.id === currentUser.id
+            ? { ...u, username: formData.username, role: formData.role }
+            : u
+        )
+      );
+    } else {
+      // Add user
+      const newUser: User = {
+        id: `u00${users.length + 1}`,
+        username: formData.username,
+        role: formData.role,
+      };
+      setUsers([...users, newUser]);
     }
+    handleCloseDialog();
+  };
+
+  const handleDelete = (id: string) => {
+    setUsers(users.filter((u) => u.id !== id));
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">User Management</h1>
-        <button
-          className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition"
-          onClick={handleOpenAddModal}
+    <Box sx={{ padding: 3 }}>
+      {/* Header section with FlexBox */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 3,
+          flexWrap: "wrap",
+          gap: 2,
+        }}
+      >
+        <Typography variant="h4" sx={{ color: "#8B4513", fontWeight: "bold" }}>
+          User Management
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+          sx={{
+            backgroundColor: "#90EE90",
+            color: "#000",
+            "&:hover": { backgroundColor: "#7CCD7C" },
+          }}
         >
           Add User
-        </button>
-      </div>
-      {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
-              onClick={handleCloseModal}
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h2 className="text-xl font-bold mb-4">{modalMode === 'add' ? 'Add User' : 'Edit User'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                name="username"
-                type="text"
-                placeholder="Username"
-                value={form.username}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
-              <input
-                name="email"
-                type="email"
-                placeholder="Email"
-                value={form.email}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
-              <input
-                name="password"
-                type="password"
-                placeholder={modalMode === 'add' ? 'Password' : 'Leave blank to keep current password'}
-                value={form.password}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2"
-                required={modalMode === 'add'}
-              />
-              <select
+        </Button>
+      </Box>
+
+      {/* Table Container */}
+      <TableContainer
+        component={Paper}
+        sx={{ borderRadius: "12px", boxShadow: 3 }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+              <TableCell sx={{ fontWeight: "bold" }}>ID</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Username</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
+              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                Actions
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow
+                key={user.id}
+                sx={{ "&:hover": { backgroundColor: "#f9f9f9" } }}
+              >
+                <TableCell>{user.id}</TableCell>
+                <TableCell>{user.username}</TableCell>
+                <TableCell>
+                  <Box
+                    component="span"
+                    sx={{
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      fontSize: "0.875rem",
+                      backgroundColor:
+                        user.role === "Administrator"
+                          ? "#ffeb3b"
+                          : user.role === "Manager"
+                          ? "#2196f3"
+                          : "#4caf50",
+                      color: user.role === "Administrator" ? "#000" : "#fff",
+                    }}
+                  >
+                    {user.role}
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  {/* Actions with FlexBox */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <IconButton
+                      color="primary"
+                      onClick={() => handleOpenDialog(user)}
+                      size="small"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleDelete(user.id)}
+                      size="small"
+                      sx={{ color: "#e91e63" }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Dialog */}
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            backgroundColor: "#8B4513",
+            color: "#fff",
+            textAlign: "center",
+          }}
+        >
+          {currentUser ? "Edit User" : "Add New User"}
+        </DialogTitle>
+        <DialogContent sx={{ paddingTop: 2 }}>
+          {/* Form fields with FlexBox container */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              paddingTop: 1,
+            }}
+          >
+            <TextField
+              autoFocus
+              name="username"
+              label="Username"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={formData.username}
+              onChange={handleTextFieldChange}
+              required
+            />
+            <FormControl fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select
                 name="role"
-                value={form.role}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2"
-                required
+                value={formData.role}
+                label="Role"
+                onChange={handleSelectChange}
               >
-                {roleOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              {formError && <div className="text-red-600 text-sm">{formError}</div>}
-              <button
-                type="submit"
-                className="w-full py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition"
-                disabled={submitting}
-              >
-                {submitting ? (modalMode === 'add' ? 'Adding...' : 'Saving...') : (modalMode === 'add' ? 'Add User' : 'Save Changes')}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* Delete Confirmation Modal */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm relative">
-            <h2 className="text-xl font-bold mb-4">Delete User</h2>
-            <p className="mb-4">Are you sure you want to delete this user?</p>
-            {deleteError && <div className="text-red-600 text-sm mb-2">{deleteError}</div>}
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-                onClick={() => setDeleteId(null)}
-                disabled={deleteLoading}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                onClick={handleDelete}
-                disabled={deleteLoading}
-              >
-                {deleteLoading ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="overflow-x-auto bg-yellow-50 rounded-xl shadow-lg">
-        {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Loading...</div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-500">{error}</div>
-        ) : (
-          <table className="min-w-full rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-brown-700 text-white">
-                <th className="px-4 py-2 text-left">ID</th>
-                <th className="px-4 py-2 text-left">Username</th>
-                <th className="px-4 py-2 text-left">Role</th>
-                <th className="px-4 py-2 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user, idx) => (
-                <tr key={user.id} className={idx % 2 === 0 ? "bg-yellow-100" : "bg-white"}>
-                  <td className="px-4 py-2">{user.id}</td>
-                  <td className="px-4 py-2">{user.username}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`px-3 py-1 rounded font-semibold text-sm ${roleColors[user.role] || 'bg-gray-200 text-gray-700'}`}
-                    >
-                      {roleLabels[user.role] || user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <button
-                      className="text-brown-700 hover:text-brown-900 mr-3"
-                      onClick={() => handleOpenEditModal(user)}
-                      title="Edit"
-                    >
-                      <svg className="inline w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V21h8"></path></svg>
-                    </button>
-                    <button
-                      className="text-red-500 hover:text-red-700"
-                      onClick={() => setDeleteId(user.id)}
-                      title="Delete"
-                    >
-                      <svg className="inline w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+                <MenuItem value="Cashier">Cashier</MenuItem>
+                <MenuItem value="Manager">Manager</MenuItem>
+                <MenuItem value="Administrator">Administrator</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: 2,
+          }}
+        >
+          <Button onClick={handleCloseDialog} sx={{ color: "#757575" }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            sx={{
+              backgroundColor: "#90EE90",
+              color: "#000",
+              "&:hover": { backgroundColor: "#7CCD7C" },
+            }}
+          >
+            {currentUser ? "Save Changes" : "Add User"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 
-export default Users; 
+export default UserManagement;
