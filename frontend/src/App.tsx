@@ -25,9 +25,17 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
           </Route>
-          {/* Admin Dashboard */}
+          {/* Admin Dashboard (with sidebar/topbar) */}
           <Route element={<ProtectedRoute allowedRoles={['admin', 'administrator']} />}>
-            <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route element={<MainLayout />}>
+              <Route path="/dashboard" element={<AdminDashboard />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/farewell-messages" element={<FarewellMessages />} />
+            </Route>
           </Route>
           {/* Manager Dashboard */}
           <Route element={<ProtectedRoute allowedRoles={['manager']} />}>
