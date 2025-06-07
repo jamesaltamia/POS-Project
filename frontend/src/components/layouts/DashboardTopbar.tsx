@@ -16,8 +16,8 @@ const DashboardTopbar: React.FC = () => {
       <div className="font-bold text-lg text-pink-600">MeowMart POS</div>
       <div className="flex items-center gap-4">
         <div className="text-gray-700">
-          <span className="font-semibold">{user?.username}</span>
-          <span className="ml-2 text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">{user?.role}</span>
+          <span className="font-semibold">{user?.name || user?.username}</span>
+          <span className="ml-2 text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded capitalize">{user?.role}</span>
         </div>
         <button
           onClick={handleLogout}

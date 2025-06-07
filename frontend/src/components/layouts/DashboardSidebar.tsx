@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { MdDashboard, MdPeople, MdInventory, MdReceipt, MdAssessment, MdSettings, MdMessage } from 'react-icons/md';
+import { MdDashboard, MdPeople, MdInventory, MdReceipt, MdAssessment, MdSettings, MdMessage, MdHistory } from 'react-icons/md';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 
 interface DashboardSidebarProps {
   role: string;
@@ -12,15 +13,17 @@ const navConfig: Record<string, { label: string; to: string; icon: JSX.Element }
     { label: 'Dashboard', to: '/dashboard', icon: <MdDashboard size={20} /> },
     { label: 'Users', to: '/users', icon: <MdPeople size={20} /> },
     { label: 'Products', to: '/products', icon: <MdInventory size={20} /> },
+    { label: 'Stock Monitoring', to: '/stock', icon: <WarningAmberOutlinedIcon fontSize="medium" /> },
+    { label: 'Inventory Logs', to: '/inventory-logs', icon: <MdHistory size={20} /> },
     { label: 'Transactions', to: '/transactions', icon: <MdReceipt size={20} /> },
     { label: 'Reports', to: '/reports', icon: <MdAssessment size={20} /> },
     { label: 'Settings', to: '/settings', icon: <MdSettings size={20} /> },
   ],
   manager: [
     { label: 'Dashboard', to: '/manager', icon: <MdDashboard size={20} /> },
-    { label: 'Products', to: '/products', icon: <MdInventory size={20} /> },
-    { label: 'Transactions', to: '/transactions', icon: <MdReceipt size={20} /> },
-    { label: 'Reports', to: '/reports', icon: <MdAssessment size={20} /> },
+    { label: 'Products', to: '/manager/products', icon: <MdInventory size={20} /> },
+    { label: 'Sales & Transactions', to: '/manager/transactions', icon: <MdReceipt size={20} /> },
+    { label: 'Reports', to: '/manager/reports', icon: <MdAssessment size={20} /> },
   ],
   cashier: [
     { label: 'Dashboard', to: '/cashier', icon: <MdDashboard size={20} /> },

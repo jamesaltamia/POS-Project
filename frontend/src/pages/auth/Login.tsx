@@ -1,11 +1,11 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { login } from '../../api/auth';
+import { useDispatch } from 'react-redux';
 import { setCredentials } from '../../store/slices/authSlice';
-import { getCsrfCookie, login } from '../../api/auth';
-import { useState } from 'react';
 
 interface LoginFormData {
   email: string;
@@ -21,52 +21,173 @@ const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<LoginFormData>({
     resolver: yupResolver(schema),
   });
 
   const onSubmit = async (data: LoginFormData) => {
     setLoginError(null);
+    setIsLoading(true);
+    
     try {
-      await getCsrfCookie();
+      console.group('🔐 Login Process');
+      console.log('Attempting login with email:', data.email);
+      
+      // Make the login request (this will handle CSRF internally)
+      console.log('1. Initiating login request...');
       const response = await login(data.email, data.password);
-      if (!response || !response.user) {
-        setLoginError(
-          response?.message ||
-          'Login failed. Please check your credentials and try again.'
-        );
-        return;
+      
+      console.log('2. Login successful, processing response...');
+      console.log('User ID:', response.user?.id);
+      console.log('User role:', response.user?.role || 'not specified');
+      
+      // Ensure we have a valid user and token
+      if (!response.user || !response.token) {
+        throw new Error('Invalid response from server');
       }
-      const backendUser = response.user;
-      const user = {
-        id: backendUser.id,
-        username: backendUser.name,
-        email: backendUser.email,
-        role: typeof backendUser.role === 'string'
-          ? backendUser.role
-          : backendUser.role?.name || 'cashier',
-      };
-      dispatch(setCredentials({ user, token: response.token }));
-      if (user.role === 'admin' || user.role === 'administrator') {
+      
+      // Extract user data from response
+      const userData = processUserResponse(response);
+      
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Update Redux store with user data
+      dispatch(setCredentials({
+        user: userData,
+        token: response.token
+      }));
+      
+      // Redirect based on role
+      console.log('3. Redirecting to dashboard for role:', userData.role);
+      
+      if (userData.role === 'admin') {
         navigate('/dashboard');
-      } else if (user.role === 'manager') {
+      } else if (userData.role === 'manager') {
         navigate('/manager');
-      } else if (user.role === 'cashier') {
-        navigate('/cashier');
       } else {
-        navigate('/login');
+        navigate('/cashier');
+      }
+      
+      const backendUser = response.user || {};
+      
+      // Debug: Log the backend user object
+      console.group('Backend User Object');
+      console.log('User ID:', backendUser.id);
+      console.log('Email:', backendUser.email);
+      console.log('Role ID:', backendUser.role_id);
+      console.log('Role Object:', backendUser.role);
+      console.groupEnd();
+      
+      // Validate required fields
+      if (!backendUser.id) {
+        console.error('❌ Invalid user data: Missing user ID');
+        throw new Error('Invalid user data received from server');
+      }
+
+      // Extract role with comprehensive fallbacks
+      let userRole = 'cashier'; // Default role
+      
+      console.group('Role Extraction');
+      try {
+        // Case 1: Role is a string
+        if (typeof backendUser.role === 'string') {
+          userRole = backendUser.role.toLowerCase();
+          console.log('Role from string:', userRole);
+        } 
+        // Case 2: Role is an object with name
+        else if (backendUser.role?.name) {
+          userRole = backendUser.role.name.toLowerCase();
+          console.log('Role from object name:', userRole);
+        }
+        // Case 3: Only role_id is available
+        else if (backendUser.role_id) {
+          const roleMap: Record<number, string> = {
+            1: 'admin',
+            2: 'manager',
+            3: 'cashier',
+            4: 'administrator'
+          };
+          userRole = roleMap[backendUser.role_id] || 'cashier';
+          console.log('Role from role_id mapping:', userRole);
+        } else {
+          console.warn('No role information found, using default role');
+        }
+        
+        // Normalize role name
+        userRole = userRole.toLowerCase().trim();
+        
+        // Map variations to standard roles
+        if (userRole === 'administrator') userRole = 'admin';
+        
+        // Validate against allowed roles
+        const validRoles = ['admin', 'manager', 'cashier'];
+        if (!validRoles.includes(userRole)) {
+          console.warn(`Role '${userRole}' not in valid roles, defaulting to 'cashier'`);
+          userRole = 'cashier';
+        }
+        
+        console.log('Final role:', userRole);
+      } catch (roleError) {
+        console.error('Error extracting role:', roleError);
+        userRole = 'cashier';
+      }
+      console.groupEnd();
+
+      // Create user object with all required fields
+      const user = {
+        id: backendUser.id.toString(),
+        username: backendUser.name || backendUser.email?.split('@')[0] || 'user',
+        email: backendUser.email || '',
+        role: userRole
+      };
+      
+      console.log('Dispatching credentials:', { user, hasToken: !!response.token });
+      
+      // Ensure we have a token before proceeding
+      if (!response.token) {
+        throw new Error('No authentication token received');
+      }
+      
+      try {
+        // Store user in localStorage
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('token', response.token);
+        
+        // Dispatch credentials to Redux store
+        dispatch(setCredentials({ user, token: response.token }));
+        
+        console.log('Authentication successful, redirecting...');
+        console.log('User role:', user.role);
+        
+        // Redirect based on role
+        if (['admin', 'administrator'].includes(user.role)) {
+          navigate('/dashboard', { replace: true });
+        } else if (user.role === 'manager') {
+          navigate('/manager', { replace: true });
+        } else if (user.role === 'cashier') {
+          navigate('/cashier', { replace: true });
+        } else {
+          console.warn(`Unknown role '${user.role}', redirecting to login`);
+          navigate('/login', { replace: true });
+        }
+      } catch (storageError) {
+        console.error('Error storing user data:', storageError);
+        throw new Error('Failed to store user session');
       }
     } catch (error: any) {
-      setLoginError(
-        error?.response?.data?.message ||
-        error?.message ||
-        'Login failed. Please check your credentials and try again.'
-      );
+      const errorMessage = error.message || 'An error occurred during login. Please try again.';
+      setLoginError(errorMessage);
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+      console.groupEnd();
     }
   };
 
@@ -133,14 +254,41 @@ const Login = () => {
         {/* Login Button */}
         <button
           type="submit"
-          disabled={isSubmitting}
-          className="bg-[#4a1c0a] text-[#ffe2a9] font-semibold py-2 px-12 rounded-full text-lg hover:bg-[#2d1206] transition disabled:opacity-50"
+          disabled={isLoading}
+          className={`w-full bg-[#4a1c0a] text-[#ffe2a9] font-semibold py-2 px-12 rounded-full text-lg hover:bg-[#2d1206] transition ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         >
-          {isSubmitting ? 'Signing in...' : 'Login'}
+          {isLoading ? 'Signing in...' : 'Login'}
         </button>
       </form>
     </div>
   );
 };
+
+// Helper function to process user response into standardized format
+function processUserResponse(response: any) {
+  // Extract role from response
+  let userRole = 'cashier';
+  if (response.user.role) {
+    if (typeof response.user.role === 'string') {
+      userRole = response.user.role.toLowerCase();
+    } else if (response.user.role.name) {
+      userRole = response.user.role.name.toLowerCase();
+    }
+  }
+  
+  // Normalize role names
+  if (userRole === 'administrator') userRole = 'admin';
+  
+  // Create user object matching the User type
+  return {
+    id: response.user.id.toString(),
+    username: response.user.username || response.user.email.split('@')[0],
+    name: response.user.name || response.user.username || response.user.email.split('@')[0],
+    email: response.user.email,
+    role: userRole
+  };
+}
 
 export default Login; 

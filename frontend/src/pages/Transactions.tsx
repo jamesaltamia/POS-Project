@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   Typography,
@@ -21,6 +21,7 @@ import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
 import RemoveShoppingCartIcon from "@mui/icons-material/RemoveShoppingCart";
 import PrintIcon from "@mui/icons-material/Print";
 import { styled } from "@mui/material/styles";
+import SnackbarAlert from "../components/SnackbarAlert";
 
 interface Product {
   id: string;
@@ -48,6 +49,7 @@ const PaymentTransaction: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = React.useState("");
   const [receiptContent, setReceiptContent] = React.useState("");
   const [openReceiptDialog, setOpenReceiptDialog] = React.useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   const filteredProducts = availableProducts.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -107,6 +109,7 @@ const PaymentTransaction: React.FC = () => {
     setCart([]); // Clear cart after successful transaction
     setPaymentAmount("");
     setDiscountPercentage(0);
+    setSnackbar({ open: true, message: "Transaction saved successfully!", severity: "success" });
   };
 
   const generateReceipt = (
@@ -372,6 +375,12 @@ const PaymentTransaction: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <SnackbarAlert
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      />
     </Box>
   );
 };

@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import Spinner from '../components/Spinner';
 import { useNotification } from '../context/NotificationContext';
 import * as transactionApi from '../api/transactions';
-import * as productApi from '../api/products';
-import * as feedbackApi from '../api/feedback';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -35,24 +33,19 @@ const Reports = () => {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week');
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [products, setProducts] = useState<any | any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [txs, prods, fb] = await Promise.all([
-          transactionApi.getTransactions(),
-          productApi.getProducts(),
-          feedbackApi.getFeedback(),
-        ]);
-        setTransactions(txs);
-        setProducts(prods);
+        const transactionsRes = await transactionApi.getTransactions();
+        setTransactions(Array.isArray(transactionsRes) ? transactionsRes : transactionsRes?.data || []);
         setError(null);
-      } catch (err: any) {
-        setError('Failed to fetch report data');
-        showNotification('Failed to fetch report data', 'error');
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load data');
+        showNotification('Failed to load reports data', 'error');
       } finally {
         setLoading(false);
       }
@@ -60,14 +53,32 @@ const Reports = () => {
     fetchData();
   }, [showNotification]);
 
-  const productList = Array.isArray(products)
-    ? products
-    : Array.isArray(products?.data)
-      ? products.data
-      : [];
+  // Calculate sales data for the reports
+  const totalSales = transactions.reduce((sum, transaction) => {
+    return sum + (typeof transaction.total === 'number' ? transaction.total : 0);
+  }, 0);
 
-  // Example: Calculate sales by day/week/month, top products, etc.
-  // You can replace these with real calculations based on your backend data structure
+  const averageOrderValue = transactions.length > 0 
+    ? (totalSales / transactions.length).toFixed(2)
+    : '0.00';
+
+  const totalOrders = transactions.length;
+  
+  // Format total sales as currency
+  const formattedTotalSales = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(totalSales);
+  
+  // Get top selling products (using sample data for now)
+  const topSellingProducts = [
+    { id: 1, name: 'Product A', sales: 45 },
+    { id: 2, name: 'Product B', sales: 32 },
+    { id: 3, name: 'Product C', sales: 28 },
+    { id: 4, name: 'Product D', sales: 22 },
+    { id: 5, name: 'Product E', sales: 15 },
+  ];
+
   const salesData = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
@@ -159,7 +170,7 @@ const Reports = () => {
                     Total Revenue
                   </dt>
                   <dd className="text-lg font-semibold text-gray-900">
-                    $123,456
+                    {formattedTotalSales}
                   </dd>
                 </dl>
               </div>
@@ -223,7 +234,7 @@ const Reports = () => {
                     Total Orders
                   </dt>
                   <dd className="text-lg font-semibold text-gray-900">
-                    {transactions.length}
+                    {totalOrders}
                   </dd>
                 </dl>
               </div>
@@ -254,7 +265,7 @@ const Reports = () => {
                   <dt className="text-sm font-medium text-gray-500 truncate">
                     Average Order Value
                   </dt>
-                  <dd className="text-lg font-semibold text-gray-900">$123</dd>
+                  <dd className="text-lg font-semibold text-gray-900">${averageOrderValue}</dd>
                 </dl>
               </div>
             </div>
@@ -323,29 +334,19 @@ const Reports = () => {
             Top Selling Products
           </h2>
           <div className="space-y-4">
-            {productList.slice(0, 5).map((product: any) => (
+            {topSellingProducts.map((product) => (
               <div
                 key={product.id}
                 className="flex items-center justify-between"
               >
-                <div className="flex items-center">
-                  {product.image && (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-10 w-10 rounded-full mr-3"
-                    />
-                  )}
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {product.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      ${product.price.toFixed(2)}
-                    </div>
-                  </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {product.name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {product.sales} sold
+                  </p>
                 </div>
-                <div className="text-sm text-gray-900">150 units</div>
               </div>
             ))}
           </div>

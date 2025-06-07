@@ -35,11 +35,12 @@ class ProductController extends Controller
             'unit' => 'required|string|max:20',
             'stock' => 'required|integer|min:0',
             'low_stock_threshold' => 'required|integer|min:0',
-            'reorder_point' => 'required|integer|min:0'
+            'reorder_point' => 'required|integer|min:0',
+            'category' => 'nullable|string|max:255',
+            'barcode' => 'nullable|string|max:255|unique:products,barcode',
+            'is_active' => 'boolean',
         ]);
-
         $product = Product::create($validated);
-
         return response()->json($product, 201);
     }
 
@@ -51,22 +52,23 @@ class ProductController extends Controller
 
     // Update a product
     public function update(Request $request, Product $product)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'sku' => ['required', 'string', Rule::unique('products')->ignore($product->id)],
-            'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
-            'category' => 'nullable|string|max:255',
-            'barcode' => ['nullable', 'string', Rule::unique('products')->ignore($product->id)],
-            'unit' => 'required|string|max:50',
-            'is_active' => 'boolean'
-        ]);
-
-        $product->update($validated);
-
-        return response()->json($product->fresh('inventory'));
-    }
+{
+    $validated = $request->validate([
+        'name' => 'sometimes|required|string|max:255',
+        'sku' => ['sometimes', 'required', 'string', Rule::unique('products')->ignore($product->id)],
+        'description' => 'nullable|string',
+        'price' => 'sometimes|required|numeric|min:0',
+        'unit' => 'sometimes|required|string|max:20',
+        'stock' => 'sometimes|required|integer|min:0',
+        'low_stock_threshold' => 'sometimes|required|integer|min:0',
+        'reorder_point' => 'sometimes|required|integer|min:0',
+        'category' => 'nullable|string|max:255',
+        'barcode' => ['nullable', 'string', Rule::unique('products')->ignore($product->id)],
+        'is_active' => 'boolean',
+    ]);
+    $product->update($validated);
+    return response()->json($product->fresh('inventory'));
+}
 
     // Delete a product
     public function destroy(Product $product)

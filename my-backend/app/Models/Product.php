@@ -15,7 +15,7 @@ class Product extends Model
         'sku',
         'description',
         'price',
-        'category',
+        'category_id',
         'barcode',
         'unit',
         'is_active',
@@ -26,11 +26,17 @@ class Product extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'category_id' => 'integer',
         'is_active' => 'boolean',
         'stock' => 'integer',
         'low_stock_threshold' => 'integer',
         'reorder_point' => 'integer'
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
 
     public function inventory()
     {
@@ -42,10 +48,10 @@ class Product extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
-    public function getCurrentStockAttribute()
-    {
-        return $this->inventory?->quantity ?? 0;
-    }
+    // public function getCurrentStockAttribute()
+    // {
+    //     return $this->inventory?->quantity ?? 0;
+    // }
 
     public function isLowStock(): bool
     {
