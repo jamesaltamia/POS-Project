@@ -1,388 +1,549 @@
-import React, { useState, useEffect } from 'react';
+// Third-party imports
+import React, { useState, useEffect, useCallback } from 'react';
+import { format, subDays } from 'date-fns';
+
+// Material-UI components
 import { 
   Box, 
-  Typography, 
-  Paper, 
+  Button, 
+  Card, 
+  CardContent, 
+  Chip, 
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl, 
+  Grid,
+  IconButton,
+  InputLabel, 
+  MenuItem, 
+  Paper,
+  Select, 
+  Stack,
   Table, 
   TableBody, 
   TableCell, 
   TableContainer, 
   TableHead, 
+  TablePagination,
   TableRow, 
-  TextField,
-  MenuItem, 
-  Select, 
-  FormControl, 
-  InputLabel, 
-  CircularProgress, 
-  IconButton,
-  Button,
-  Grid,
-  Card,
-  CardContent
+  TextField, 
+  Typography
 } from '@mui/material';
-import { format } from 'date-fns';
-import { Search, Print, PictureAsPdf, FileDownload } from '@mui/icons-material';
+import { Search, PictureAsPdf, FileDownload, Visibility as VisibilityIcon } from '@mui/icons-material';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+
+// Utils and API
+import { formatCurrency } from '../utils/formatters';
+import API from '../api/axios';
+
+// Types
+interface TransactionItem {
+  id?: number;
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+  product_id?: number;
+  created_at?: string;
+  updated_at?: string;
+}
 
 interface Transaction {
-  id: string;
-  date: Date;
-  customer: string;
-  items: number;
+  id: number;
+  date: string;
+  customer_name: string;
+  items: TransactionItem[];
+  subtotal: number;
+  tax: number;
+  discount: number;
   total: number;
-  paymentMethod: string;
-  status: 'completed' | 'refunded' | 'pending';
+  payment_method: string;
+  status: 'completed' | 'refunded' | 'pending' | 'cancelled';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  user_id?: number;
+  receipt_number?: string;
+}
+
+interface Pagination {
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
 }
 
 const ManagerTransactions: React.FC = () => {
+  // State management
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({
+    currentPage: 1,
+    lastPage: 1,
+    perPage: 10,
+    total: 0
+  });
+  
+  // UI State
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  
+  // Filters
   const [dateRange, setDateRange] = useState<{
-    start: Date | null;
-    end: Date | null;
+    start: Date | undefined;
+    end: Date | undefined;
   }>({ 
-    start: new Date(new Date().setDate(new Date().getDate() - 7)),
+    start: subDays(new Date(), 7),
     end: new Date() 
   });
+
+  // Handle date change for DatePicker
+  const handleStartDateChange = (date: Date | null) => {
+    setDateRange(prev => ({
+      ...prev,
+      start: date || undefined
+    }));
+  };
+
+  const handleEndDateChange = (date: Date | null) => {
+    setDateRange(prev => ({
+      ...prev,
+      end: date || undefined
+    }));
+  };
+  
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Mock data - replace with API call
-  useEffect(() => {
-    const fetchTransactions = async () => {
+  // Fetch transactions from API
+  const fetchTransactions = useCallback(async () => {
+    try {
       setLoading(true);
-      try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mock data
-        const mockTransactions: Transaction[] = [
-          {
-            id: 'TXN-1001',
-            date: new Date('2023-05-15T14:30:00'),
-            customer: 'Walk-in Customer',
-            items: 3,
-            total: 1250.75,
-            paymentMethod: 'Cash',
-            status: 'completed'
-          },
-          {
-            id: 'TXN-1002',
-            date: new Date('2023-05-15T15:45:00'),
-            customer: 'John Smith',
-            items: 5,
-            total: 2870.50,
-            paymentMethod: 'Credit Card',
-            status: 'completed'
-          },
-          {
-            id: 'TXN-1003',
-            date: new Date('2023-05-16T10:15:00'),
-            customer: 'Sarah Johnson',
-            items: 2,
-            total: 850.00,
-            paymentMethod: 'GCash',
-            status: 'refunded'
-          },
-          {
-            id: 'TXN-1004',
-            date: new Date('2023-05-16T16:20:00'),
-            customer: 'Michael Brown',
-            items: 1,
-            total: 450.00,
-            paymentMethod: 'Cash',
-            status: 'completed'
-          },
-          {
-            id: 'TXN-1005',
-            date: new Date('2023-05-17T11:30:00'),
-            customer: 'Walk-in Customer',
-            items: 4,
-            total: 1620.25,
-            paymentMethod: 'Credit Card',
-            status: 'pending'
-          },
-        ];
-        
-        setTransactions(mockTransactions);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-      } finally {
-        setLoading(false);
+      setError(null);
+      
+      const params = new URLSearchParams({
+        page: pagination.currentPage.toString(),
+        per_page: pagination.perPage.toString(),
+        ...(dateRange.start && { start_date: format(dateRange.start, 'yyyy-MM-dd') }),
+        ...(dateRange.end && { end_date: format(dateRange.end, 'yyyy-MM-dd') }),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+        ...(paymentMethodFilter !== 'all' && { payment_method: paymentMethodFilter }),
+        ...(searchTerm && { search: searchTerm })
+      });
+      
+      const response = await API.get(`/transactions?${params.toString()}`);
+      
+      setTransactions(response.data.data);
+      setPagination({
+        currentPage: response.data.current_page || 1,
+        lastPage: response.data.last_page || 1,
+        perPage: response.data.per_page || 10,
+        total: response.data.total || 0,
+      });
+    } catch (err) {
+      setError('Failed to load transactions');
+      console.error('Error fetching transactions:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.currentPage, pagination.perPage, dateRange.start, dateRange.end, statusFilter, paymentMethodFilter, searchTerm]);
+
+  // Handle view transaction details
+  const handleViewDetails = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
+  // Handle export to different formats
+  const handleExport = async (exportFormat: 'pdf' | 'csv') => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (dateRange.start) {
+        params.append('start_date', format(dateRange.start, 'yyyy-MM-dd'));
       }
-    };
+      if (dateRange.end) {
+        params.append('end_date', format(dateRange.end, 'yyyy-MM-dd'));
+      }
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      if (paymentMethodFilter !== 'all') {
+        params.append('payment_method', paymentMethodFilter);
+      }
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
 
+      const response = await API.get(`/transactions/export/${exportFormat}?${params.toString()}`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `transactions_${format(new Date(), 'yyyyMMdd')}.${exportFormat}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error(`Error exporting to ${exportFormat.toUpperCase()}:`, error);
+      setError(`Failed to export to ${exportFormat.toUpperCase()}. Please try again.`);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
+  };
+
+  // Handle page change
+  const handlePageChange = (event: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => {
+    setPagination(prev => ({
+      ...prev,
+      currentPage: newPage + 1 // Material-UI uses 0-based index
+    }));
+  };
+
+  // Handle rows per page change
+  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPagination({
+      ...pagination,
+      perPage: parseInt(event.target.value, 10),
+      currentPage: 1 // Reset to first page
+    });
+  };
+
+  // Fetch data on component mount and when filters change
+  useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [pagination.currentPage, pagination.perPage, searchTerm, statusFilter, paymentMethodFilter, dateRange]);
 
-  // Filter transactions based on date range, status, and search term
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesDate = (!dateRange.start || transaction.date >= dateRange.start) && 
-                       (!dateRange.end || transaction.date <= new Date(dateRange.end.getTime() + 86400000)); // Add 1 day to include end date
-    
-    const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
-    
-    const matchesSearch = searchTerm === '' || 
-      transaction.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.customer.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesDate && matchesStatus && matchesSearch;
-  });
+  // Status options for filter
+  const statusOptions = [
+    { value: 'all', label: 'All Statuses' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'refunded', label: 'Refunded' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'cancelled', label: 'Cancelled' }
+  ];
 
-  // Calculate summary
-  const totalSales = filteredTransactions
-    .filter(t => t.status === 'completed')
-    .reduce((sum, transaction) => sum + transaction.total, 0);
-    
-  const totalTransactions = filteredTransactions.length;
-  const averageOrderValue = totalTransactions > 0 ? totalSales / totalTransactions : 0;
+  // Payment method options for filter
+  const paymentMethodOptions = [
+    { value: 'all', label: 'All Methods' },
+    { value: 'cash', label: 'Cash' },
+    { value: 'credit_card', label: 'Credit Card' },
+    { value: 'debit_card', label: 'Debit Card' },
+    { value: 'online', label: 'Online Payment' }
+  ];
 
-  const handleDateRangeChange = (field: 'start' | 'end', event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const value = event.target.value;
-    setDateRange(prev => ({ ...prev, [field]: value ? new Date(value) : null }));
-  };
-
-  const handleStatusFilterChange = (event: any) => {
-    setStatusFilter(event.target.value);
-  };
-
+  // Handle search input change with debounce
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
   };
 
-  const handlePrint = () => {
-    window.print();
+  // Handle status filter change
+  const handleStatusChange = (event: any) => {
+    setStatusFilter(event.target.value);
   };
 
-  const handleExportPDF = () => {
-    // TODO: Implement PDF export
-    console.log('Exporting to PDF...');
-  };
-
-  const handleExportCSV = () => {
-    // TODO: Implement CSV export
-    console.log('Exporting to CSV...');
+  // Handle payment method filter change
+  const handlePaymentMethodChange = (event: any) => {
+    setPaymentMethodFilter(event.target.value);
   };
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Sales & Transactions
-        </Typography>
-        <Box>
-          <Button 
-            variant="outlined" 
-            startIcon={<Print />} 
-            onClick={handlePrint}
-            sx={{ mr: 1 }}
-          >
-            Print
-          </Button>
-          <Button 
-            variant="outlined" 
-            startIcon={<PictureAsPdf />} 
-            onClick={handleExportPDF}
-            sx={{ mr: 1 }}
-          >
-            PDF
-          </Button>
-          <Button 
-            variant="outlined" 
-            startIcon={<FileDownload />} 
-            onClick={handleExportCSV}
-          >
-            CSV
-          </Button>
-        </Box>
-      </Box>
-
-
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <Card elevation={3}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Sales
-              </Typography>
-              <Typography variant="h4" component="div">
-                ₱{totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                {dateRange.start && dateRange.end 
-                  ? `${format(dateRange.start, 'MMM d, yyyy')} - ${format(dateRange.end, 'MMM d, yyyy')}`
-                  : 'All time'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card elevation={3}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Transactions
-              </Typography>
-              <Typography variant="h4" component="div">
-                {totalTransactions}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                {filteredTransactions.filter(t => t.status === 'completed').length} completed
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card elevation={3}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Average Order Value
-              </Typography>
-              <Typography variant="h4" component="div">
-                ₱{averageOrderValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Per transaction
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
+      <Typography variant="h4" gutterBottom>Transaction History</Typography>
+      
       {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }} elevation={2}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search transactions..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: <Search sx={{ color: 'action.active', mr: 1 }} />,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth variant="outlined">
-              <InputLabel id="status-filter-label">Status</InputLabel>
-              <Select
-                labelId="status-filter-label"
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-                label="Status"
-              >
-                <MenuItem value="all">All Status</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="refunded">Refunded</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
               <TextField
                 fullWidth
-                label="Start Date"
-                type="date"
-                value={dateRange.start ? format(dateRange.start, 'yyyy-MM-dd') : ''}
-                onChange={(e) => handleDateRangeChange('start', e)}
-                InputLabelProps={{
-                  shrink: true,
+                variant="outlined"
+                placeholder="Search transactions..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
                 }}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="End Date"
-                type="date"
-                value={dateRange.end ? format(dateRange.end, 'yyyy-MM-dd') : ''}
-                onChange={(e) => handleDateRangeChange('end', e)}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              />
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  onChange={handleStatusChange}
+                  label="Status"
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Payment Method</InputLabel>
+                <Select
+                  value={paymentMethodFilter}
+                  onChange={handlePaymentMethodChange}
+                  label="Payment Method"
+                >
+                  {paymentMethodOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Start Date"
+                  value={dateRange.start}
+                  onChange={handleStartDateChange}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="End Date"
+                  value={dateRange.end}
+                  onChange={handleEndDateChange}
+                  minDate={dateRange.start}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
           </Grid>
-        </Grid>
-      </Paper>
+        </CardContent>
+      </Card>
+
+      {/* Export Buttons */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button
+          variant="outlined"
+          startIcon={<PictureAsPdf />}
+          onClick={() => handleExport('pdf')}
+        >
+          Export PDF
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<FileDownload />}
+          onClick={() => handleExport('csv')}
+        >
+          Export CSV
+        </Button>
+      </Box>
 
       {/* Transactions Table */}
-      <Paper sx={{ width: '100%', overflow: 'hidden' }} elevation={2}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : filteredTransactions.length === 0 ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography>No transactions found matching your criteria.</Typography>
-          </Box>
-        ) : (
-          <TableContainer sx={{ maxHeight: 600 }}>
-            <Table stickyHeader aria-label="transactions table">
-              <TableHead>
+      <Card>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell>Items</TableCell>
+                <TableCell>Total</TableCell>
+                <TableCell>Payment</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  <TableCell>Transaction ID</TableCell>
-                  <TableCell>Date & Time</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell align="right">Items</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                  <TableCell>Payment</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell colSpan={8} align="center">
+                    <CircularProgress />
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredTransactions.map((transaction) => (
-                  <TableRow hover key={transaction.id}>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <Typography color="error">{error}</Typography>
+                    <Button onClick={fetchTransactions} sx={{ mt: 1 }}>Retry</Button>
+                  </TableCell>
+                </TableRow>
+              ) : transactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    No transactions found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                transactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
                     <TableCell>{transaction.id}</TableCell>
+                    <TableCell>{formatDate(transaction.date)}</TableCell>
+                    <TableCell>{transaction.customer_name || 'Walk-in Customer'}</TableCell>
+                    <TableCell>{transaction.items.length} items</TableCell>
+                    <TableCell>{formatCurrency(transaction.total)}</TableCell>
+                    <TableCell>{transaction.payment_method}</TableCell>
                     <TableCell>
-                      {format(transaction.date, 'MMM d, yyyy h:mm a')}
-                    </TableCell>
-                    <TableCell>{transaction.customer}</TableCell>
-                    <TableCell align="right">{transaction.items}</TableCell>
-                    <TableCell align="right">
-                      ₱{transaction.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>{transaction.paymentMethod}</TableCell>
-                    <TableCell>
-                      <Box 
-                        component="span" 
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: 4,
-                          display: 'inline-block',
-                          backgroundColor: transaction.status === 'completed' 
-                            ? 'success.light' 
-                            : transaction.status === 'pending'
-                            ? 'warning.light'
-                            : 'error.light',
-                          color: 'white',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          textTransform: 'capitalize'
-                        }}
-                      >
-                        {transaction.status}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button 
-                        variant="outlined" 
+                      <Chip 
+                        label={transaction.status} 
+                        color={
+                          transaction.status === 'completed' ? 'success' :
+                          transaction.status === 'pending' ? 'warning' :
+                          transaction.status === 'cancelled' ? 'error' : 'default'
+                        }
                         size="small"
-                        onClick={() => console.log('View details', transaction.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleViewDetails(transaction)}
+                        title="View Details"
                       >
-                        View
-                      </Button>
+                        <VisibilityIcon />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={pagination.total}
+          page={pagination.currentPage - 1}
+          onPageChange={(e, newPage) => handlePageChange(e, newPage)}
+          rowsPerPage={pagination.perPage}
+          onRowsPerPageChange={handleRowsPerPageChange}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+        />
+      </Card>
+
+      {/* Transaction Details Modal */}
+      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} maxWidth="md" fullWidth>
+        {selectedTransaction && (
+          <>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ mt: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Transaction ID</Typography>
+                    <Typography>{selectedTransaction.id}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Date</Typography>
+                    <Typography>{formatDate(selectedTransaction.date)}</Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Customer: {selectedTransaction.customer_name || 'Walk-in Customer'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Status</Typography>
+                    <Chip 
+                      label={selectedTransaction.status} 
+                      color={
+                        selectedTransaction.status === 'completed' ? 'success' :
+                        selectedTransaction.status === 'pending' ? 'warning' :
+                        selectedTransaction.status === 'cancelled' ? 'error' : 'default'
+                      }
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+
+                <Typography variant="h6" sx={{ mt: 2 }}>Items</Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Item</TableCell>
+                      <TableCell align="right">Qty</TableCell>
+                      <TableCell align="right">Price</TableCell>
+                      <TableCell align="right">Total</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedTransaction.items.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell align="right">{formatCurrency(item.price)}</TableCell>
+                        <TableCell align="right">{formatCurrency(item.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                  <Stack spacing={1} sx={{ width: 300 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Subtotal:</Typography>
+                      <Typography>{formatCurrency(selectedTransaction.subtotal)}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Tax ({selectedTransaction.tax / selectedTransaction.subtotal * 100}%):</Typography>
+                      <Typography>{formatCurrency(selectedTransaction.tax)}</Typography>
+                    </Box>
+                    {selectedTransaction.discount > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography>Discount:</Typography>
+                        <Typography color="error">-{formatCurrency(selectedTransaction.discount)}</Typography>
+                      </Box>
+                    )}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #eee', pt: 1, mt: 1 }}>
+                      <Typography variant="subtitle1">Total:</Typography>
+                      <Typography variant="subtitle1">{formatCurrency(selectedTransaction.total)}</Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+
+                {selectedTransaction.notes && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2">Notes:</Typography>
+                    <Typography>{selectedTransaction.notes}</Typography>
+                  </Box>
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setIsModalOpen(false)}>Close</Button>
+              <Button 
+                variant="contained" 
+                onClick={() => {
+                  // Handle reprint receipt or other actions
+                  setIsModalOpen(false);
+                }}
+              >
+                Reprint Receipt
+              </Button>
+            </DialogActions>
+          </>
         )}
-      </Paper>
+      </Dialog>
     </Box>
   );
 };
