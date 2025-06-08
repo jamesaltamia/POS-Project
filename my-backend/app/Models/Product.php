@@ -38,10 +38,10 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function inventory()
-    {
-        return $this->hasOne(Inventory::class);
-    }
+    public function inventoryLogs()
+{
+    return $this->hasMany(InventoryLog::class);
+}
 
     public function inventoryMovements()
     {

@@ -1,19 +1,47 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api/axios'; // Assuming your axios instance is here
-import { Box, Button, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Alert, Chip } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import AddProductModal from '../components/products/AddProductModal';
+import api from '../api/axios';
+import { 
+  Box, 
+  Button, 
+  CircularProgress, 
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Typography, 
+  Alert, 
+  Chip, 
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText
+} from '@mui/material';
+import { 
+  Add as AddIcon, 
+  Edit as EditIcon, 
+  Delete as DeleteIcon,
+  Close as CloseIcon
+} from '@mui/icons-material';
+import AddProductModal, { type ProductData } from '../components/products/AddProductModal';
+import EditProductModal from '../components/products/EditProductModal';
 
-interface Product {
+export interface Product {
   id: number;
   name: string;
   description: string;
   price: number;
-  // Add other relevant product fields here, e.g., category, stock_quantity, supplier_id etc.
-  // For now, keeping it simple.
-  category?: { name: string }; // Example of a nested object
-  stock?: number; // Changed from stock_quantity
-  low_stock_threshold?: number;
+  category_id: number;
+  category?: { id: number; name: string };
+  stock: number;
+  low_stock_threshold: number;
+  barcode?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const ManagerProducts: React.FC = () => {
@@ -21,6 +49,11 @@ const ManagerProducts: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -45,10 +78,75 @@ const ManagerProducts: React.FC = () => {
     fetchProducts();
   }, []);
 
-  const handleProductAdded = () => {
-    fetchProducts(); // Re-fetch products to update the list
+    const handleProductAdded = async (productData: ProductData) => {
+    try {
+      await api.post('/products', productData);
+      fetchProducts(); // Re-fetch products to update the list
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error adding product:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Failed to add product' 
+      };
+    }
   };
 
+  const handleEditClick = (product: Product) => {
+    setEditingProduct(product);
+  };
+
+  const handleDeleteClick = (productId: number) => {
+    setProductToDelete(productId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+      
+      await api.delete(`/products/${productToDelete}`);
+      
+      // Update the products list by removing the deleted product
+      setProducts(prevProducts => 
+        prevProducts.filter(product => product.id !== productToDelete)
+      );
+      
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    } catch (err: any) {
+      console.error('Error deleting product:', err);
+      setDeleteError(err.response?.data?.message || 'Failed to delete product');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setProductToDelete(null);
+    setDeleteError('');
+  };
+
+  const handleEditSave = async (productData: any) => {
+    if (!editingProduct) return { success: false, error: 'No product selected' };
+    
+    try {
+      await api.put(`/products/${editingProduct.id}`, productData);
+      fetchProducts(); // Refresh the products list
+      setEditingProduct(null);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error updating product:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Failed to update product' 
+      };
+    }
+  };
 
 
   if (loading) {
@@ -97,7 +195,7 @@ const ManagerProducts: React.FC = () => {
                 <TableCell sx={{ color: 'common.white', fontWeight: 'bold' }}>Category</TableCell>
                 <TableCell sx={{ color: 'common.white', fontWeight: 'bold' }} align="right">Stock</TableCell>
                 <TableCell sx={{ color: 'common.white', fontWeight: 'bold' }} align="center">Status</TableCell>
-                {/* Add more headers as needed */}
+                <TableCell sx={{ color: 'common.white', fontWeight: 'bold' }} align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -115,8 +213,8 @@ const ManagerProducts: React.FC = () => {
                   <TableCell>{product.category?.name || 'N/A'}</TableCell>
                   <TableCell align="right">{product.stock ?? 'N/A'}</TableCell>
                   <TableCell align="center">
-                    {typeof product.stock === 'number' && typeof product.low_stock_threshold === 'number' ? (
-                      product.stock <= product.low_stock_threshold ? (
+                    {typeof product.stock === 'number' ? (
+                      product.stock < 20 ? (
                         <Chip label="Low Stock" color="error" size="small" />
                       ) : (
                         <Chip label="In Stock" color="success" size="small" />
@@ -125,19 +223,97 @@ const ManagerProducts: React.FC = () => {
                       <Chip label="N/A" size="small" />
                     )}
                   </TableCell>
-                  {/* Add more cells for other product data */}
+                  <TableCell align="right">
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                      <IconButton 
+                        size="small" 
+                        color="primary" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditClick(product);
+                        }}
+                        aria-label="edit"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="error" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(product.id);
+                        }}
+                        aria-label="delete"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
       )}
-      {/* TODO: Add buttons for Edit, Delete actions */}
-      <AddProductModal 
-        open={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onSave={handleProductAdded} 
+<AddProductModal
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSave={async (productData: ProductData) => {
+          const result = await handleProductAdded(productData);
+          if (result.success) {
+            setIsAddModalOpen(false);
+          }
+          return result;
+        }}
       />
+      
+{editingProduct && (
+        <EditProductModal
+          open={!!editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSave={async (productData) => {
+            const result = await handleEditSave(productData);
+            if (result?.success) {
+              setEditingProduct(null);
+            }
+            return result;
+          }}
+          product={editingProduct as any} // Type assertion to handle the category_id difference
+        />
+      )}
+      
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={isDeleting ? undefined : handleDeleteCancel}
+      >
+        <DialogTitle>Delete Product</DialogTitle>
+        <DialogContent>
+          {deleteError && (
+            <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>
+          )}
+          <DialogContentText>
+            Are you sure you want to delete this product? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={handleDeleteCancel} 
+            disabled={isDeleting}
+            startIcon={<CloseIcon />}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            color="error" 
+            variant="contained"
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

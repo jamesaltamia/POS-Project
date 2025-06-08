@@ -33,9 +33,9 @@ interface User {
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = React.useState<User[]>([
-    { id: "u001", username: "admin", role: "Administrator" },
-    { id: "u002", username: "manager1", role: "Manager" },
-    { id: "u003", username: "cashier1", role: "Cashier" },
+    { id: "1", username: "admin", role: "Administrator" },
+    { id: "2", username: "manager1", role: "Manager" },
+    { id: "3", username: "cashier1", role: "Cashier" },
   ]);
   const [openDialog, setOpenDialog] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
@@ -82,7 +82,7 @@ const UserManagement: React.FC = () => {
     } else {
       // Add user
       const newUser: User = {
-        id: `u00${users.length + 1}`,
+        id: `${users.length + 1}`,
         username: formData.username,
         role: formData.role,
       };
@@ -120,7 +120,7 @@ const UserManagement: React.FC = () => {
             color: "#000",
             "&:hover": { backgroundColor: "#7CCD7C" },
           }}
-        >
+        > 
           Add User
         </Button>
       </Box>

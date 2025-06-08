@@ -56,11 +56,11 @@ const AdminDashboard = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Manager Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
 
       <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-800">
-          Welcome, {user?.name || 'Manager'}
+        <h2 className="text-xl font-semibold text-gray-800">  
+          Welcome, {user?.name || 'Dashboard'}
         </h2>
         <p className="text-gray-600">Here's your daily overview for {new Date().toLocaleDateString()}</p>
       </div>
